@@ -2,9 +2,9 @@
 
 <img src="assets/logo.png" alt="E-Braille Logo" width="80" />
 
-# E-Braille: Multilingual Sign Language Recognition Platform
+# E-Braille: Multilingual Sign Language Recognition
 
-*Real-time assistive computer vision and deep learning system for sign language translation and interactive learning*
+*Real-time sign language interpretation and assistive communication using MediaPipe and convolutional neural networks.*
 
 [![Python](https://img.shields.io/badge/Python-3.9%20%7C%203.10-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8?style=flat-square&logo=opencv&logoColor=white)](https://opencv.org/)
@@ -14,7 +14,7 @@
 
 <br />
 
-[Overview](#overview) • [Architecture](#architecture) • [Features](#features) • [Demonstration](#demonstration) • [Specifications](#specifications) • [Supported Dialects](#supported-dialects) • [Authors](#authors)
+[Overview](#overview) • [System Pipeline](#system-pipeline) • [Key Features](#key-features) • [Demonstrations](#demonstrations) • [Technical Specifications](#technical-specifications) • [Supported Languages](#supported-languages) • [Authors](#authors)
 
 <br />
 
@@ -23,137 +23,129 @@
 </div>
 
 > [!NOTE]
-> **Showcase & Architecture Repository**  
-> This repository serves as an open architecture reference, technical specification, and portfolio showcase. The proprietary neural network weights and core inference backend are maintained in a private repository for academic and intellectual property governance. Live demonstrations and full research papers are available upon inquiry.
+> This repository documents the architecture, interface design, and experimental results for our final year capstone project. The model weights and training pipeline are kept in a private repository for academic requirements. For live demonstrations or questions about the paper, please reach out via LinkedIn.
 
 ---
 
 ## Overview
 
-Over 70 million deaf individuals globally face persistent communication barriers in healthcare, education, and daily commercial transactions. **E-Braille** is an assistive computer vision system designed to bridge this divide through real-time sign language recognition, automated speech synthesis, and interactive educational tooling on standard consumer webcams.
+E-Braille translates hand signs into text and spoken audio in real time using a standard consumer webcam. The system processes video at over 30 FPS and classifies gestures across five regional sign languages: American Sign Language (ASL), British Sign Language (BSL), Bangladesh Sign Language (BDSL), Bahasa Isyarat Malaysia (BIM), and Japanese Sign Language (JSL).
 
-The system combines Google MediaPipe skeletal tracking, dynamic aspect-preserving spatial normalization, deep convolutional classification, and a temporal majority-voting consensus engine to deliver low-latency (30+ FPS) interpretation across 5 international and regional sign dialects.
+Raw video crops often fail when a user shifts distance from the camera or moves quickly between gestures. To keep predictions stable, E-Braille uses an aspect-preserving coordinate normalization step that centers hands on a fixed canvas, followed by a temporal majority-voting filter to eliminate prediction flicker. In addition to a live OpenCV head-up display, the project includes a Streamlit web platform with browser text-to-speech, basic sentence sentiment analysis, and interactive learning games.
 
 ---
 
-## Architecture
-
-The end-to-end processing pipeline operates in five decoupled stages:
+## System Pipeline
 
 ```mermaid
 flowchart LR
-    A[Webcam Stream] --> B[MediaPipe Landmarker]
-    B --> C{Hand Tracked?}
+    A[Webcam Feed] --> B[MediaPipe Landmarker]
+    B --> C{Hand Found?}
     C -- Yes --> D[Spatial Normalization & Centering]
     C -- No --> A
-    D --> E[Neural Classification Network]
-    E --> F[Temporal Majority Smoother]
-    F --> G[OpenCV HUD Overlay]
-    F --> H[Streamlit Accessible Hub]
-    H --> I[Text-to-Speech Engine]
-    H --> J[VADER Sentiment Analysis]
+    D --> E[Convolutional Classifier]
+    E --> F[Temporal Majority Filter]
+    F --> G[OpenCV HUD]
+    F --> H[Streamlit Web App]
+    H --> I[Text-to-Speech]
+    H --> J[VADER Sentiment]
 ```
 
 <div align="center">
   <img src="assets/11_RealTime_Detection_Pipeline.png" alt="Real-Time Detection Pipeline" width="850" />
 </div>
 
-### Processing Stages
+### How the Pipeline Works
 
-1. **Skeletal Landmark Acquisition**: Extracts 21 3D hand coordinates per frame using Google MediaPipe Hands, operating independently of skin tone, background complexity, and variable ambient lighting.
-2. **Aspect-Preserving Spatial Normalization**: Computes bounding box dimensions $(w, h)$ and calculates the aspect ratio ($h / w$). The hand crop is scaled along its dominant axis and centered onto a constant $300 \times 300$ white canvas with zero padding, eliminating perspective distortions caused by hand-to-camera distance variations.
-3. **Deep Neural Inference**: Feeds normalized $224 \times 224$ tensors scaled to dynamic range $[-1.0, 1.0]$ into a deep convolutional network architecture for category probability estimation.
-4. **Temporal Majority Smoothing**: Buffers predictions into a rolling deque of $N=5$ consecutive frames. A gesture is confirmed only when consensus exceeds $50\%$ and mean confidence satisfies the activation threshold ($\ge 0.35$), preventing frame-to-frame flicker during dynamic transitions.
-5. **Presentation & Accessible Output**: Routes verified predictions to either the low-latency OpenCV Head-Up Display (HUD) or the full-featured Streamlit accessible browser hub.
-
----
-
-## Features
-
-- **Multilingual Sign Recognition**: Interprets 5 distinct regional and international sign dialects: ASL, BSL, BDSL, BIM (Malaysian Sign Language), and JSL (Japanese Syllabary).
-- **Scale-Invariant Preprocessing**: Mathematical canvas centering guarantees identical input geometry regardless of user distance from the camera lens.
-- **Anti-Flicker Consensus Engine**: Sliding-window majority voting suppresses transitional hand noise and false-positive spikes.
-- **Accessible Web Platform**: Streamlit-driven user portal offering live recognition, visual dictionaries, quizzes, and browser-based Text-to-Speech (TTS) synthesis.
-- **Sentiment & Conversational Parsing**: Ingests recognized gesture sequences into a VADER natural language engine to determine emotional valence (Positive, Neutral, Negative).
-- **Interactive Gamification**: Includes a real-time gesture-driven Rock-Paper-Scissors (RPS) game engine and educational challenge modes designed to increase engagement among students and early signers.
+1. **Landmark Detection**: MediaPipe Hands extracts 21 3D landmarks for each detected hand, providing coordinates regardless of lighting or background changes.
+2. **Aspect-Preserving Normalization**: Instead of stretching the bounding box directly into a square, the system calculates the hand's aspect ratio ($h / w$). It scales the crop along its longer side and centers it onto a clean $300 \times 300$ white canvas. This keeps finger proportions intact whether the user is close to or far from the webcam.
+3. **Neural Network Inference**: The centered crop is resized to $224 \times 224$, normalized to $[-1, 1]$, and passed through a convolutional neural network (CNN) trained on curated gesture sets.
+4. **Temporal Majority Voting**: A rolling buffer tracks predictions across the last five frames ($N = 5$). The system only displays a new gesture when at least 50% of the buffer agrees and confidence exceeds 0.35. This prevents the output from rapidly jumping between classes during hand transitions.
+5. **Output and Interfaces**: The filtered prediction is sent to either the low-latency OpenCV display for direct signing or to the Streamlit app for speech synthesis, quizzes, and dictionary lookups.
 
 ---
 
-## Demonstration
+## Key Features
 
-### Live Computer Vision HUD
-The real-time computer vision interface overlays bounding boxes, predicted gestures, confidence scores, and a running sentence buffer onto the live camera stream.
+- **Five Sign Languages**: Recognizes alphabets, numbers, and common everyday signs across ASL, BSL, BDSL, BIM, and JSL.
+- **Consistent Scaling**: Aspect-preserving centering keeps inputs uniform regardless of how far the user stands from the camera.
+- **Stable Live Predictions**: Rolling-buffer majority voting eliminates frame-to-frame flicker while signing.
+- **Educational Web Portal**: A Streamlit interface with a searchable sign library, interactive quizzes, and browser-based audio playback.
+- **Sentence and Sentiment Building**: Signs can be committed into complete sentences with basic emotional tone analysis (Positive, Neutral, Negative) via VADER.
+- **Gesture Games**: Includes a real-time Rock-Paper-Scissors game against the computer and interactive practice challenges.
+
+---
+
+## Demonstrations
+
+### Live Camera Overlay
+The OpenCV interface tracks hand position, displays classification confidence, and allows users to append confirmed signs to a running sentence buffer.
 
 <div align="center">
   <img src="assets/02_ASL_Alphabet_RealTime_Detection.png" alt="ASL Live Detection" width="800" />
-  <p><em>Real-time ASL alphabet tracking with dynamic confidence metrics.</em></p>
+  <p><em>Real-time ASL alphabet recognition with live confidence readout.</em></p>
   <br />
   <img src="assets/03_ASL_Common_Signs_and_Sentiment.png" alt="ASL Common Signs and Sentiment" width="800" />
-  <p><em>Common conversational signs with real-time VADER emotional sentiment scoring.</em></p>
+  <p><em>Common phrase recognition paired with VADER sentence sentiment tracking.</em></p>
 </div>
 
-### Accessible Web Learning Hub
-The browser-based educational interface provides reference materials, sign dictionaries, interactive quizzes, and automated audio playback.
+### Streamlit Learning Platform
+The web interface gives students and educators a structured dictionary, practice flashcards, and automated text-to-speech feedback.
 
 <div align="center">
   <img src="assets/04_Streamlit_SignLanguage_Education_Platform.png" alt="Streamlit Education Platform" width="800" />
-  <p><em>Streamlit platform with multimodal learning resources and vocal synthesis.</em></p>
+  <p><em>Accessible learning dashboard with gesture reference cards and audio output.</em></p>
 </div>
 
-### Interactive Gesture Game Engine
-A dedicated gesture state machine enables real-time webcam gameplay against an automated computer opponent.
+### Gesture-Controlled Games
+Users can practice hand shapes interactively by playing Rock-Paper-Scissors against the system in real time.
 
 <div align="center">
   <img src="assets/05_Sunway_Fun_Challenges_Game.png" alt="Gesture Controlled Game" width="800" />
-  <p><em>Rock-Paper-Scissors gesture game loop running at sub-35ms latency.</em></p>
+  <p><em>Real-time gesture interaction running at sub-35 ms latency.</em></p>
 </div>
 
 ---
 
-## Specifications
+## Technical Specifications
 
-| Specification | Implementation Detail |
+| Parameter | Configuration |
 | :--- | :--- |
-| **Landmark Tracking** | MediaPipe Hands (21 3D landmarks) |
-| **Input Resolution** | $1920 \times 1080$ capture, cropped & centered to $300 \times 300$ canvas |
-| **Tensor Dimension** | $224 \times 224 \times 3$, normalized to range $[-1.0, 1.0]$ |
-| **Inference Latency** | $25 - 35\text{ ms}$ per frame (~30 FPS on standard CPU) |
-| **Smoothing Window** | Deque size $N=5$, agreement threshold $\ge 0.50$, confidence threshold $\ge 0.35$ |
-| **Audio Engine** | Web Speech API (in-browser client-side synthesis) |
-| **Sentiment Engine** | VADER (Valence Aware Dictionary and sEntiment Reasoner) |
-| **Application Layer** | OpenCV HUD (low latency) + Streamlit (multimodal web) |
+| **Landmark Extractor** | MediaPipe Hands (21 3D coordinates) |
+| **Camera Feed** | 1080p capture cropped and centered onto a $300 \times 300$ canvas |
+| **Model Input** | $224 \times 224 \times 3$, normalized to $[-1, 1]$ |
+| **Inference Latency** | $25\text{--}35\text{ ms}$ per frame (~30 FPS on CPU) |
+| **Smoothing Window** | 5 frames, minimum 50% consensus, 0.35 confidence threshold |
+| **Speech Engine** | Browser Web Speech API |
+| **Sentiment Analysis** | VADER Lexicon |
+| **Interface Layers** | OpenCV (real-time HUD) and Streamlit (web platform) |
 
 ---
 
-## Supported Dialects
+## Supported Languages
 
-The platform spans both static character alphabets and multi-gesture conversational phrases across five regional standards:
-
-| Dialect | Standard Code | Supported Categories |
+| Language | Code | Dataset Scope |
 | :--- | :--- | :--- |
-| **American Sign Language** | ASL | Alphabet (A–Z), Digits (0–9), Common Everyday Phrases |
-| **British Sign Language** | BSL | Digits (0–9), Common Everyday Phrases |
-| **Bangladesh Sign Language** | BDSL | Digits (0–9), Common Everyday Phrases |
-| **Bahasa Isyarat Malaysia** | BIM | Common Conversational Signs |
-| **Japanese Sign Language** | JSL | Japanese Syllabary Characters |
+| **American Sign Language** | ASL | Alphabets (A–Z), Numbers (0–9), Common Phrases |
+| **British Sign Language** | BSL | Numbers (0–9), Common Phrases |
+| **Bangladesh Sign Language** | BDSL | Numbers (0–9), Common Phrases |
+| **Bahasa Isyarat Malaysia** | BIM | Common Phrases |
+| **Japanese Sign Language** | JSL | Syllabary Characters |
 
 <div align="center">
   <img src="assets/12_Dataset_Distribution_Chart.png" alt="Dataset Distribution" width="800" />
-  <p><em>Sample class distribution across regional datasets.</em></p>
+  <p><em>Class sample distributions across regional gesture collections.</em></p>
 </div>
 
 ---
 
 ## Authors
 
-This project was developed as a Final Year Capstone Research Project at **Sunway University / Sunway College**, Malaysia:
-
-- **Phuah Hong Xuan**
-- **Pua Hoong Ze**
+Developed by **Phuah Hong Xuan** and **Pua Hoong Ze** as a Final Year Capstone Project at Sunway University / Sunway College, Malaysia.
 
 <div align="center">
   <img src="assets/01_Academic_Research_Poster.png" alt="Academic Research Poster" width="800" />
 </div>
 
 > [!TIP]
-> For academic inquiries, collaboration opportunities, or live system demonstrations, please reach out via [LinkedIn](https://www.linkedin.com).
+> If you are interested in trying a live demo, reading our complete final report, or discussing the methodology, please connect with us on [LinkedIn](https://www.linkedin.com).
