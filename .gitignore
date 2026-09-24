@@ -1,0 +1,23 @@
+# Ignore any source code or data if accidentally placed in showcase folder
+*.py
+*.pyc
+*.h5
+*.task
+*.rar
+*.zip
+*.tar.gz
+*.mp3
+*.bak
+
+# Virtual environments & IDEs
+venv/
+env/
+.venv/
+.idea/
+.vscode/
+__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
